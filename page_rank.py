@@ -7,11 +7,12 @@ with open("training_set.txt", "r") as f:
     edges  = list(reader)
     for edge in edges:
         from_paper, to_paper, exists = edge[0].split()
+        if from_paper not in paper_graph:
+            paper_graph[from_paper] = []
+        if to_paper not in paper_graph:
+            paper_graph[to_paper] = []
         if exists == '1':
-            if from_paper in paper_graph:
-                paper_graph[from_paper] += [to_paper]
-            else:
-                paper_graph[from_paper] = [to_paper]    
+            paper_graph[from_paper] += [to_paper]
     
 # constructs graphs of citations between authors author_graph and 
 # dict author_name_to_id mapping author name to an unique id used in the author_graph
@@ -65,10 +66,45 @@ while abs(abs_avg_rel_change) > abs_avg_relative_change_to_stop and n_iter < max
     n_iter += 1
 print("Stopped running PageRank!")    
 
-with open("page_rank.csv", "w", newline='') as out:
+with open("authors_page_rank.csv", "w", newline='') as out:
     csv_out = csv.writer(out)
     author_list = [(rank[author_name_to_id[author]], author) for author in author_name_to_id]
     author_list.sort(reverse=True)    
     for a_rank, a_name in author_list:
         csv_out.writerow([a_name, a_rank])
 
+with open("papers_authors_page_rank.csv", "w", newline='') as out:
+    csv_out = csv.writer(out)
+    for paper in paper_graph:
+        # paperID, min rank of authors, max, sum.
+        rank_authors_of_paper = [rank[author] for author in paper_to_author_graph[paper]]
+        csv_out.writerow([paper, min(rank_authors_of_paper), max(rank_authors_of_paper), sum(rank_authors_of_paper)])
+
+########
+
+print("Started running PageRank for papers")
+rank_paper = {x : 1/len(paper_graph) for x in paper_graph}
+abs_avg_rel_change = 10000
+n_iter = 1
+while abs(abs_avg_rel_change) > abs_avg_relative_change_to_stop and n_iter < max_iter:
+    print("iteration: ", n_iter, " abs avg relative change: ", abs(abs_avg_rel_change))
+    # iterate on every paper
+    old_rank = rank_paper
+    rank_paper = {x : (1-damping_factor)/len(rank_paper) for x in old_rank}
+    for paper_citing in paper_graph:
+        for paper_being_cited in paper_graph[paper_citing]:
+            rank_paper[paper_being_cited] += damping_factor * old_rank[paper_citing] / len(paper_graph[paper_citing])
+    # update auxiliary parameters
+    abs_avg_rel_change = 0
+    for paper in paper_graph:
+        abs_avg_rel_change += abs(rank_paper[paper] / old_rank[paper] - 1.)
+    abs_avg_rel_change /= len(rank_paper)
+    n_iter += 1
+print("Stopped running PageRank!")    
+
+with open("papers_page_rank.csv", "w", newline='') as out:
+    csv_out = csv.writer(out)
+    paper_list = [(rank_paper[paper], paper) for paper in paper_graph]
+    paper_list.sort(reverse=True)    
+    for p_rank, p_id in paper_list:
+        csv_out.writerow([p_id, p_rank])
