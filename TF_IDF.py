@@ -26,10 +26,10 @@ with open("node_information_preprocessed_abstracts_authornames.csv", "r") as f:
         TF.append({word : freq[word]/number_of_words for word in freq})
     # IDF
     number_of_documents = len(TF)
-    IDF = {number_of_documents/(1 + docs_with_word[word]) for word in docs_with_word}        
+    IDF = {word : number_of_documents/(1 + docs_with_word[word]) for word in docs_with_word}        
 
 # weigth[i] = {word : weigth(word,i)} for document i
-weigth = [{TF_dict_for_document[word]*IDF[word] for word in TF_dict_for_document} for TF_dict_for_document in TF]
+weigth = [{word : TF_dict_for_document[word]*IDF[word] for word in TF_dict_for_document} for TF_dict_for_document in TF]
 
 ##########   CALCULATE COSINE   ##############
 weigth_norm_for_document = [sqrt(sum(value ** 2 for value in weigth_for_doc.values())) for weigth_for_doc in weigth]
@@ -37,6 +37,8 @@ weigth_norm_for_document = [sqrt(sum(value ** 2 for value in weigth_for_doc.valu
 with open("TF_IDF_cosine_between_papers.csv", "w", newline='') as out:
     csv_out = csv.writer(out)
     for i in range(len(weigth)):
+        if i % 100 == 0:
+            print("line", i)
         to_print = []
         for j in range(len(weigth)):
             nominator = 0
