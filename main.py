@@ -74,7 +74,7 @@ docs_with_word = {}
 # IDF = {word : IDF(word)}
 IDF = {}
 # TF
-for index, row in joined.loc[:,['id', 'abstract']].iterrows():
+for index, row in node_info.loc[:,['id', 'abstract']].iterrows():
     freq = {}
     words = row[1].split()
     for word in words:
@@ -102,8 +102,53 @@ for index, (i,j) in joined.loc[:,['citing_paper_ID', 'cited_paper_ID']].iterrows
 feature_cosine = pd.DataFrame(data={'cosine':cosine})
 
 
+print('started calculating page_ranks')
+citing_paper_page_rank = []
+div_paper_page_rank = []
+with open('papers_page_rank.csv', 'r') as f:
+    reader = csv.reader(f)
+    edges  = list(reader)
+    papers_page_rank_dict = {}
+    for edge in edges:
+        papers_page_rank_dict[int(edge[0])] = float(edge[1])
+for index, row in joined.loc[:,['citing_paper_ID', 'cited_paper_ID']].iterrows():
+    citing_paper_page_rank.append(papers_page_rank_dict[row[0]])
+    div_paper_page_rank.append(papers_page_rank_dict[row[1]] / papers_page_rank_dict[row[0]])
+feature_citing_paper_page_rank = pd.DataFrame(data={'citing_paper_page_rank':citing_paper_page_rank})
+feature_div_paper_page_rank = pd.DataFrame(data={'div_paper_page_rank':div_paper_page_rank})
+
+
+print('started calculating page_ranks for authors')
+citing_min_rank_authors = []
+citing_max_rank_authors = []
+citing_sum_rank_authors = []
+div_min_rank_authors = []
+div_max_rank_authors = []
+div_sum_rank_authors = []
+with open('papers_authors_page_rank.csv', 'r') as f:
+    reader = csv.reader(f)
+    edges  = list(reader)
+    rank_authors_dict = {}
+    for paperID, min_rank_authors, max_rank_authors, sum_rank_authors in edges:
+        rank_authors_dict[int(paperID)] = (float(min_rank_authors), float(max_rank_authors), float(sum_rank_authors))
+for index, row in joined.loc[:,['citing_paper_ID', 'cited_paper_ID']].iterrows():
+    min_r, max_r, sum_r = rank_authors_dict[row[0]]
+    citing_min_rank_authors.append(min_r)
+    citing_max_rank_authors.append(max_r)
+    citing_sum_rank_authors.append(sum_r)
+    min_r2, max_r2, sum_r2 = rank_authors_dict[row[1]]
+    div_min_rank_authors.append(min_r2 / min_r)
+    div_max_rank_authors.append(max_r2 / max_r)
+    div_sum_rank_authors.append(sum_r2 / sum_r)
+feature_citing_min_rank_authors = pd.DataFrame(data={'citing_min_rank_authors':citing_min_rank_authors})
+feature_citing_max_rank_authors = pd.DataFrame(data={'citing_max_rank_authors':citing_max_rank_authors})
+feature_citing_sum_rank_authors = pd.DataFrame(data={'citing_sum_rank_authors':citing_sum_rank_authors})
+feature_div_min_rank_authors = pd.DataFrame(data={'div_min_rank_authors':div_min_rank_authors})
+feature_div_max_rank_authors = pd.DataFrame(data={'div_max_rank_authors':div_max_rank_authors})
+feature_div_sum_rank_authors = pd.DataFrame(data={'div_sum_rank_authors':div_sum_rank_authors})
+
+    
 features = pd.concat([
-        joined['has_citation'],
         joined['year_citing'],
         feature_year_diff, 
         feature_num_authors_citing, 
@@ -112,11 +157,24 @@ features = pd.concat([
         feature_known_journal_citing,
         feature_known_journal_cited,
         feature_same_journal,
-        feature_cosine
+        feature_cosine,
+        feature_citing_paper_page_rank,
+        feature_div_paper_page_rank,
+        feature_citing_min_rank_authors,
+        feature_citing_max_rank_authors,
+        feature_citing_sum_rank_authors,
+        feature_div_min_rank_authors,
+        feature_div_max_rank_authors,
+        feature_div_sum_rank_authors
         ], axis=1)
 
-citation = ...
+to_predict = pd.DataFrame(data={'citation':joined['has_citation']})
 
-         
-  
-#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+to_predict.to_csv('to_predict.csv', index=False)
+features.to_csv('features.csv', index=False)
+
+features_plus = pd.concat([features, to_predict], axis=1)
+features.to_csv('features_plus.csv', index=False)
+
+
+features_train, features_test, to_predict_train, to_predict_test = train_test_split(features, to_predict)
